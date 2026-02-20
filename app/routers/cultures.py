@@ -1,13 +1,8 @@
-from fastapi import APIRouter, Depends, Body, Query, Path, HTTPException, status
+from fastapi import APIRouter, Body, Depends, Query, Path, HTTPException, status
 from typing import List
 from app.core.session import Session, get_session
-from app.schemas.culture import (
-    CultureCreate,
-    CultureRead,
-    CultureUpdate
-)
-from app.core.dependencies import requires_role
 from app.schemas.culture import CultureCreate, CultureRead, CultureUpdate
+from app.core.dependencies import requires_role
 from app.models.utilisateur import Utilisateur
 from app.services.cultures import (
     create_culture,
@@ -16,29 +11,40 @@ from app.services.cultures import (
     read_cultures_by_utilisateur,
     read_cultures_by_ferme,
     update_culture,
-    delete_culture
+    delete_culture,
 )
-
 
 
 router = APIRouter(prefix="/api/cultures", tags=["Cultures"])
 
 ROLES_ADMIN_AGRICULTEUR = ["Admin", "Agriculteur"]
 ROLES_ALL = ["Admin", "Agriculteur", "Technicien"]
+not_found_error = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND, detail="Culture inexistante"
+)
+
+
+def forbiden_error(message):
+    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
 
 
 @router.post("/", response_model=CultureRead)
 def create_culture_endpoint(
     session: Session = Depends(get_session),
     culture: CultureCreate = Body(...),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ADMIN_AGRICULTEUR))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ADMIN_AGRICULTEUR)),
 ):
-    if utilisateur_current.id != culture.utilisateur_id and utilisateur_current.role == "Agriculteur":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous n'avez pas les permissions nécessaires pour créer une culture pour cet utilisateur"
+    if (
+        utilisateur_current.id != culture.utilisateur_id
+        and utilisateur_current.role == "Agriculteur"
+    ):
+        raise forbiden_error(
+            "Vous n'avez pas les permissions nécessaires \
+                pour créer une culture pour cet utilisateur"
         )
-    return create_culture(session=session, culture_data=culture, utilisateur_current=utilisateur_current)
+    return create_culture(
+        session=session, culture_data=culture, utilisateur_current=utilisateur_current
+    )
 
 
 @router.get("/", response_model=List[CultureRead])
@@ -46,10 +52,12 @@ async def read_cultures_endpoint(
     session: Session = Depends(get_session),
     offset: int = 0,
     limit: int = Query(100, le=100),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL)),
 ):
     if utilisateur_current.role == "Agriculteur":
-        return read_cultures_by_utilisateur(session=session, utilisateur_id=utilisateur_current.id)
+        return read_cultures_by_utilisateur(
+            session=session, utilisateur_id=utilisateur_current.id
+        )
     cultures = read_cultures(session=session, offset=offset, limit=limit)
     return cultures
 
@@ -58,20 +66,19 @@ async def read_cultures_endpoint(
 async def read_culture_endpoint(
     session: Session = Depends(get_session),
     culture_id: int = Path(...),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL)),
 ):
     culture = read_culture(session=session, culture_id=culture_id)
 
     if not culture:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Culture inexistante"
-        )
-    
-    if culture.utilisateur_id != utilisateur_current.id and utilisateur_current.role == "Agriculteur":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous n'avez pas les permissions nécessaires pour voir cette culture"
+        raise not_found_error
+    if (
+        culture.utilisateur_id != utilisateur_current.id
+        and utilisateur_current.role == "Agriculteur"
+    ):
+        raise forbiden_error(
+            "Vous n'avez pas les permissions\
+                             nécessaires pour voir cette culture"
         )
 
     return culture
@@ -81,43 +88,44 @@ async def read_culture_endpoint(
 async def read_cultures_by_utilisateur_endpoint(
     session: Session = Depends(get_session),
     utilisateur_id: int = Path(...),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL)),
 ):
-    if utilisateur_current.role == "Agriculteur" and utilisateur_current.id != utilisateur_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous n'avez pas les permissions nécessaires pour voir les cultures de cet utilisateur"
+    if (
+        utilisateur_current.role == "Agriculteur"
+        and utilisateur_current.id != utilisateur_id
+    ):
+        raise forbiden_error(
+            "Vous n'avez pas les permissions nécessaires\
+                             pour voir les cultures de cet utilisateur"
         )
-    
-    cultures = read_cultures_by_utilisateur(session=session, utilisateur_id=utilisateur_id)
+
+    cultures = read_cultures_by_utilisateur(
+        session=session, utilisateur_id=utilisateur_id
+    )
 
     if not cultures:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Culture inexistante"
-        )
-    return cultures 
+        raise not_found_error
+
+    return cultures
+
 
 @router.get("/ferme/{ferme_id}", response_model=List[CultureRead])
 async def read_cultures_by_ferme_endpoint(
     session: Session = Depends(get_session),
     ferme_id: int = Path(...),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ALL)),
 ):
     cultures = read_cultures_by_ferme(session=session, ferme_id=ferme_id)
 
     if not cultures:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Culture inexistante"
+        raise not_found_error
+    if utilisateur_current.role == "Agriculteur" and all(
+        culture.utilisateur_id != utilisateur_current.id for culture in cultures
+    ):
+        raise forbiden_error(
+            "Vous n'avez pas les permissions nécessaires\
+                             pour voir les cultures de cette ferme"
         )
-    
-    if utilisateur_current.role == "Agriculteur" and all(culture.utilisateur_id != utilisateur_current.id for culture in cultures):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous n'avez pas les permissions nécessaires pour voir les cultures de cette ferme"
-        )
-    
     return cultures
 
 
@@ -126,23 +134,23 @@ async def update_culture_endpoint(
     session: Session = Depends(get_session),
     culture_id: int = Path(...),
     culture_data: CultureUpdate = Body(...),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ADMIN_AGRICULTEUR))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ADMIN_AGRICULTEUR)),
 ):
     culture = read_culture(session=session, culture_id=culture_id)
 
     if not culture:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Culture inexistante"
+        raise not_found_error
+    if (
+        culture.utilisateur_id != utilisateur_current.id
+        and utilisateur_current.role == "Agriculteur"
+    ):
+        raise forbiden_error(
+            "Vous n'avez pas les permissions nécessaires\
+                             pour modifier cette culture"
         )
-    
-    if culture.utilisateur_id != utilisateur_current.id and utilisateur_current.role == "Agriculteur":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous n'avez pas les permissions nécessaires pour modifier cette culture"
-        )
-    
-    culture = update_culture(session=session, culture_id=culture_id, culture=culture_data)
+    culture = update_culture(
+        session=session, culture_id=culture_id, culture=culture_data
+    )
 
     return culture
 
@@ -151,19 +159,18 @@ async def update_culture_endpoint(
 async def delete_culture_endpoint(
     session: Session = Depends(get_session),
     culture_id: int = Path(...),
-    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ADMIN_AGRICULTEUR))
+    utilisateur_current: Utilisateur = Depends(requires_role(*ROLES_ADMIN_AGRICULTEUR)),
 ):
     culture = read_culture(session=session, culture_id=culture_id)
     if not culture:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Culture inexistante"
-        )
-    
-    if culture.utilisateur_id != utilisateur_current.id and utilisateur_current.role == "Agriculteur":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous n'avez pas les permissions nécessaires pour supprimer cette culture"
+        raise not_found_error
+    if (
+        culture.utilisateur_id != utilisateur_current.id
+        and utilisateur_current.role == "Agriculteur"
+    ):
+        raise forbiden_error(
+            "Vous n'avez pas les permissions nécessaires\
+                             pour supprimer cette culture"
         )
     culture = delete_culture(session=session, culture_id=culture_id)
 

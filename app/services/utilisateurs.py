@@ -5,14 +5,13 @@ from app.core.session import Session
 from app.core.security import hash_password, verify_password
 
 from app.models.utilisateur import Utilisateur
-from app.schemas.utilisateur import UtilisateurCreate, UtilisateurUpdate, TokenData, Token
-
-
+from app.schemas.utilisateur import UtilisateurCreate, UtilisateurUpdate
 
 
 def get_user_by_email(session: Session, email: str):
-    statement = select(Utilisateur).where(func.lower(Utilisateur.email) == email.lower())
-    return session.exec(statement).first()
+    script = select(Utilisateur).where(func.lower(Utilisateur.email) == email.lower())
+    return session.exec(script).first()
+
 
 # authentification
 def authentificate_user(session: Session, email: str, password: str):

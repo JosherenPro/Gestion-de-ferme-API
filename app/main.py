@@ -2,11 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 import app.models
-from app.routers import (
-    cultures,
-    utilisateurs,
-    fermes
-)
+from app.routers import cultures, utilisateurs, fermes
 from app.core.session import init_db
 
 
@@ -16,10 +12,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
-    title="Gestion de Ferme",
-    lifespan=lifespan
-)
+app = FastAPI(title="Gestion de Ferme", lifespan=lifespan)
 
 app.include_router(utilisateurs.router)
 app.include_router(fermes.router)

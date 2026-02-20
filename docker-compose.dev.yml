@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:17
+    container_name: postgres_dev
+    restart: always
+    env_file:
+      - .env.postgres
+    ports:
+      - "5432:5432"         
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"        
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
+    volumes:
+      - .:/app              
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"             # Accès local via navigateur
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - api
+    restart: always
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:

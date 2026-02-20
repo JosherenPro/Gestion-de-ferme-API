@@ -7,7 +7,6 @@ if TYPE_CHECKING:
     from app.models.culture import Culture
 
 
-
 class RoleEnum(str, Enum):
     admin = "Admin"
     agriculteur = "Agriculteur"
