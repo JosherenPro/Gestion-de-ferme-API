@@ -1,0 +1,10 @@
+fastapi[standard]
+uvicorn[standard]
+sqlmodel
+pwdlib[argon2]
+PyJWT
+psycopg2-binary
+python-dotenv
+httpx
+pytest
+pytest-asyncio
