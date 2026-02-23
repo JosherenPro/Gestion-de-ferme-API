@@ -42,9 +42,7 @@ def create_ferme_endpoint(
                              que pour votre propre compte"
         )
 
-    return create_ferme(
-        session=session, ferme=ferme, utilisateur_current=utilisateur_current
-    )
+    return create_ferme(session=session, ferme=ferme)
 
 
 @router.get("/", response_model=List[FermeRead])

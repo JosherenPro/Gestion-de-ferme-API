@@ -42,9 +42,7 @@ def create_culture_endpoint(
             "Vous n'avez pas les permissions nécessaires \
                 pour créer une culture pour cet utilisateur"
         )
-    return create_culture(
-        session=session, culture_data=culture, utilisateur_current=utilisateur_current
-    )
+    return create_culture(session=session, culture_data=culture)
 
 
 @router.get("/", response_model=List[CultureRead])
